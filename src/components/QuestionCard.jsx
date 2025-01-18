@@ -34,6 +34,7 @@ const WebDatePicker = ({ value, onChange }) => {
 
 export const QuestionCard = ({ questionData, index, onDateUpdate }) => {
   const question = questionData.data;
+  const userSolution = questionData.userSolution;
   const [showDatePicker, setShowDatePicker] = useState(false);
 
   const handleDateChange = (event, selectedDate) => {
@@ -69,7 +70,7 @@ export const QuestionCard = ({ questionData, index, onDateUpdate }) => {
             {Platform.OS === 'web' ? (
               <View style={styles.dateButton}>
                 <DatePickerComponent
-                  value={question.solved_date ? new Date(question.solved_date) : null}
+                  value={userSolution?.solved_date ? new Date(userSolution.solved_date) : null}
                   onChange={handleDateChange}
                 />
               </View>
@@ -79,16 +80,16 @@ export const QuestionCard = ({ questionData, index, onDateUpdate }) => {
                 onPress={() => setShowDatePicker(true)}
               >
                 <Text style={styles.dateText}>
-                  {question.solved_date ? formatDate(question.solved_date) : 'Add date'}
+                  {userSolution?.solved_date ? formatDate(userSolution.solved_date) : 'Add date'}
                 </Text>
               </TouchableOpacity>
             )}
             <TouchableOpacity
-              style={[styles.solveBtn, question.solved && styles.solved]}
+              style={[styles.solveBtn, userSolution?.is_solved && styles.solved]}
               onPress={() => Linking.openURL(question.link)}
             >
               <Text style={styles.solveBtnText}>
-                {question.solved ? 'Solved' : 'Solve →'}
+                {userSolution?.is_solved ? 'Solved' : 'Solve →'}
               </Text>
             </TouchableOpacity>
           </View>

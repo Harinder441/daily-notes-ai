@@ -1,15 +1,27 @@
-import React, { useState } from 'react';
-import { StyleSheet,  } from 'react-native';
-import DSAPlayground from './src/Screens/DSAPlayground';
+import React from 'react';
+import { View } from 'react-native';
+import DSAPlayground from './src/screens/DSAPlayground';
+import Login from './src/screens/Login';
+import { UserProvider, useUser } from './src/context/userContext';
 
-export default function App() {
-  
+function AppContent() {
+  const { session, initialized } = useUser();
+
+  if (!initialized) {
+    return null; // Or a loading spinner
+  }
+
   return (
-    <DSAPlayground />
+    <View style={{ flex: 1 }}>
+      {session ? <DSAPlayground /> : <Login />}
+    </View>
   );
 }
 
-const styles = StyleSheet.create({
-
- 
-});
+export default function App() {
+  return (
+    <UserProvider>
+      <AppContent />
+    </UserProvider>
+  );
+}

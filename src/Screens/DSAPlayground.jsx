@@ -1,29 +1,46 @@
 import React, { useState,useEffect } from 'react';
-import { StyleSheet, SafeAreaView, ScrollView, Text, View } from 'react-native';
+import { StyleSheet, SafeAreaView, ScrollView, Text, View, Button } from 'react-native';
 import { SearchBar } from '../components/SearchBar';
 import { QuestionCard } from '../components/QuestionCard';
 import { Pagination } from '../components/Pagination';
 import { StatusBar } from 'expo-status-bar';
 import { supabase } from '../lib/supabase';
-
+import { useUser } from '../context/userContext';
 export default function DSAPlayground() {
   const [currentPage, setCurrentPage] = useState(1);
   const [questions, setQuestions] = useState([]);
   const [filteredQuestions, setFilteredQuestions] = useState([]);
+  const { user, signOut } = useUser();
   const ITEMS_PER_PAGE = 10;
 
   useEffect(() => {
-    const fetchQuestions = async () => {
-      const { data, error } = await supabase.from('dsa_question').select('*').order('created_at', { ascending: true });
-      if (error) {
-        console.error('Error fetching questions:', error);
-      } else {
-        setQuestions(data);
-        setFilteredQuestions(data);
+    const fetchQuestionsAndSolutions = async () => {
+      const [questionsResponse, solutionsResponse] = await Promise.all([
+        supabase.from('dsa_question').select('*').order('created_at', { ascending: true }),
+        supabase.from('user_solutions').select('*').eq('user_id', user.id)
+      ]);
+
+      if (questionsResponse.error) {
+        console.error('Error fetching questions:', questionsResponse.error);
+        return;
       }
+
+      if (solutionsResponse.error) {
+        console.error('Error fetching solutions:', solutionsResponse.error);
+        return;
+      }
+
+      const questionsWithSolutions = questionsResponse.data.map(question => ({
+        ...question,
+        userSolution: solutionsResponse.data.find(solution => solution.question_id === question.id) || null
+      }));
+
+      setQuestions(questionsWithSolutions);
+      setFilteredQuestions(questionsWithSolutions);
     };
-    fetchQuestions();
-  }, []);
+
+    fetchQuestionsAndSolutions();
+  }, [user.id]);
 
   const filterQuestions = (searchTerm) => {
     const filtered = questions.filter(question => {
@@ -43,28 +60,51 @@ export default function DSAPlayground() {
   const questionsToShow = filteredQuestions.slice(startIndex, startIndex + ITEMS_PER_PAGE);
 
   const handleDateUpdate = async (question, date) => {
-    const { data, error } = await supabase
-      .from('dsa_question')
-      .update({data:{ 
-        ...question.data,
-        solved: true,
-        solved_date: date 
-      }})
-      .eq('id', question.id);
+    const { data: existingSolution } = await supabase
+      .from('user_solutions')
+      .select('*')
+      .eq('question_id', question.id)
+      .eq('user_id', user.id)
+      .single();
+
+    let error;
+    if (existingSolution) {
+      const { error: updateError } = await supabase
+        .from('user_solutions')
+        .update({
+          is_solved: true,
+          solved_date: date
+        })
+        .eq('question_id', question.id)
+        .eq('user_id', user.id);
+      error = updateError;
+    } else {
+      const { error: insertError } = await supabase
+        .from('user_solutions')
+        .insert({
+          user_id: user.id,
+          question_id: question.id,
+          is_solved: true,
+          solved_date: date
+        });
+      error = insertError;
+    }
 
     if (error) {
-      console.error('Error updating question:', error);
+      console.error('Error updating solution:', error);
     } else {
-      console.log('Question updated successfully');
-      // Update the local state
       setFilteredQuestions(prevQuestions =>
         prevQuestions.map(q =>
           q.id === question.id
-            ? { ...q, data:{
-              ...q.data,
-              solved: true,
-              solved_date: date 
-            }}
+            ? {
+                ...q,
+                userSolution: {
+                  question_id: question.id,
+                  user_id: user.id,
+                  is_solved: true,
+                  solved_date: date
+                }
+              }
             : q
         )
       );
@@ -75,7 +115,7 @@ export default function DSAPlayground() {
     <SafeAreaView style={styles.container}>
       <StatusBar style="auto" />
       <Text style={styles.title}>DSA Questions Collection</Text>
-      
+      <Button title="Sign Out" onPress={signOut} />
       <SearchBar onSearch={filterQuestions} />
       
       <ScrollView style={styles.questionsList}>

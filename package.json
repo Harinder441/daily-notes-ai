@@ -20,7 +20,8 @@
     "react-dom": "18.3.1",
     "react-native-web": "~0.19.13",
     "@expo/metro-runtime": "~4.0.0",
-    "@react-native-community/datetimepicker": "8.2.0"
+    "@react-native-community/datetimepicker": "8.2.0",
+    "expo-router": "~4.0.16"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",
