@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "my-world-react-native",
-    "slug": "my-world-react-native",
+    "name": "daily-notes-ai",
+    "slug": "daily-notes-ai",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -22,10 +22,18 @@
       }
     },
     "web": {
-      "favicon": "./assets/favicon.png"
+      "favicon": "./assets/favicon.io"
     },
     "plugins": [
       "expo-router"
-    ]
+    ],
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "648e0393-38c0-4692-94cc-c02a310adfa9"
+      }
+    }
   }
 }
