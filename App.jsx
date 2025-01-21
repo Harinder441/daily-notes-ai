@@ -1,9 +1,10 @@
 import React from 'react';
 import { View } from 'react-native';
-import DSAPlayground from './src/screens/DSAPlayground';
-import Login from './src/screens/Login';
+import DSAPlayground from './src/Screens/DSAPlayground';
+import Login from './src/Screens/Login';
+import DailyNotes from './src/Screens/DailyNotes';
 import { UserProvider, useUser } from './src/context/userContext';
-
+import { StatusBar } from 'expo-status-bar';
 function AppContent() {
   const { session, initialized } = useUser();
 
@@ -13,7 +14,8 @@ function AppContent() {
 
   return (
     <View style={{ flex: 1 }}>
-      {session ? <DSAPlayground /> : <Login />}
+      <StatusBar style="auto" />
+      {session ? <DailyNotes /> : <Login />}
     </View>
   );
 }
