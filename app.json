@@ -19,7 +19,8 @@
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
         "backgroundColor": "#ffffff"
-      }
+      },
+      "package": "com.dailynotesai.harinder441"
     },
     "web": {
       "favicon": "./assets/favicon.io"
