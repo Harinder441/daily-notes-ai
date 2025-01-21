@@ -23,7 +23,7 @@
       "package": "com.dailynotesai.harinder441"
     },
     "web": {
-      "favicon": "./assets/favicon.io"
+      "favicon": "./assets/favicon.png"
     },
     "plugins": [
       "expo-router"
