@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import Home from '../components/DailyNotes/Home';
 import AllNotes from '../components/DailyNotes/AllNotes';
 import History from '../components/DailyNotes/History';
-import Logout from '../components/DailyNotes/Logout';
+import Settings from '../components/DailyNotes/Settings';
 import BottomNavBar from '../components/DailyNotes/BottomNavBar';
 
 const DailyNotes = () => {
@@ -16,8 +16,8 @@ const DailyNotes = () => {
         return <AllNotes />;
       case 'history':
         return <History />;
-      case 'logout':
-        return <Logout />;
+      case 'settings':
+        return <Settings />;
       default:
         return <Home />;
     }

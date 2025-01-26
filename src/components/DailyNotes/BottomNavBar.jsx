@@ -52,17 +52,17 @@ const BottomNavBar = ({ currentTab, onTabPress }) => {
 
       <TouchableOpacity 
         style={styles.tabItem} 
-        onPress={() => onTabPress('logout')}
+        onPress={() => onTabPress('settings')}
       >
         <MaterialIcons 
-          name="logout" 
+          name="settings" 
           size={24} 
-          color={currentTab === 'logout' ? '#0066cc' : '#666'} 
+          color={currentTab === 'settings' ? '#0066cc' : '#666'} 
         />
         <Text style={[
           styles.tabText, 
-          currentTab === 'logout' && styles.activeTabText
-        ]}>Logout</Text>
+          currentTab === 'settings' && styles.activeTabText
+        ]}>Settings</Text>
       </TouchableOpacity>
     </View>
   );
