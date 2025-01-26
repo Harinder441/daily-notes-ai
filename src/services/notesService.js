@@ -15,12 +15,8 @@ export const notesService = {
   },
 
   async saveToServer(userId, noteDate, content, timestamp) {
-    const { data: existingNote } = await supabase
-      .from('daily_notes')
-      .select('*')
-      .eq('user_id', userId)
-      .eq('note_date', noteDate)
-      .single();
+    console.log('userId', userId, 'noteDate', noteDate, 'content', content, 'timestamp', timestamp);
+    const existingNote = await this.fetchFromServer(userId, noteDate);
 
     if (existingNote) {
       return supabase
@@ -41,11 +37,51 @@ export const notesService = {
   },
 
   async fetchFromServer(userId, noteDate) {
-    return supabase
+    const { data: serverNotes, error } = await supabase
       .from('daily_notes')
       .select('*')
       .eq('user_id', userId)
       .eq('note_date', noteDate)
-      .single();
+      .limit(1);
+    const serverNote = serverNotes[0]??null;
+    console.log('serverNotddde', serverNote);
+    if(!error) {
+      return serverNote;
+    }
+    return null;
+  },
+  
+  async addToHistory(note) {
+    try {
+      const history = await this.getHistory() || [];
+      
+      // Add new note to the beginning of the array
+      history.unshift(note);
+      
+      // Limit to 20 items
+      const limitedHistory = history.slice(0, 20);
+      
+      await AsyncStorage.setItem('notes_history', JSON.stringify(limitedHistory));
+    } catch (error) {
+      console.error('Error adding to history:', error);
+    }
+  },
+
+  async getHistory() {
+    try {
+      const history = await AsyncStorage.getItem('notes_history');
+      return history ? JSON.parse(history) : [];
+    } catch (error) {
+      console.error('Error getting history:', error);
+      return [];
+    }
+  },
+
+  async clearHistory() {
+    try {
+      await AsyncStorage.removeItem('notes_history');
+    } catch (error) {
+      console.error('Error clearing history:', error);
+    }
   }
 }; 

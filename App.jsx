@@ -14,7 +14,7 @@ function AppContent() {
 
   return (
     <View style={{ flex: 1 }}>
-      <StatusBar style="auto" />
+      <StatusBar style="auto" translucent={false} />
       {session ? <DailyNotes /> : <Login />}
     </View>
   );
