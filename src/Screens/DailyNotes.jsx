@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   TextInput,
@@ -13,37 +13,37 @@ import debounce from 'lodash/debounce';
 import { supabase } from '../lib/supabase';
 import { useUser } from '../context/userContext';
 import NetInfo from '@react-native-community/netinfo';
+import { useNoteSync } from '../hooks/useNoteSync';
+import { notesService } from '../services/notesService';
 
 const DailyNotes = () => {
-  const [notes, setNotes] = useState('');
-  const [isSaving, setSaving] = useState(false);
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false);
-  const [lastSyncTime, setLastSyncTime] = useState(null);
-  const [isOnline, setIsOnline] = useState(true);
   const { user } = useUser();
+  const [isOnline, setIsOnline] = useState(true);
+  
+  const {
+    notes,
+    setNotes,
+    isSaving,
+    hasUnsavedChanges,
+    handleTextChange,
+    syncWithServer,
+    getTodayKey
+  } = useNoteSync(user.id, isOnline);
 
-  // Get today's date as key
-  const getTodayKey = () => {
-    const today = new Date();
-    return today.toISOString().split('T')[0];
-  };
   // Monitor network status
   useEffect(() => {
     const unsubscribe = NetInfo.addEventListener(state => {
       setIsOnline(state.isConnected);
-      if (state.isConnected) {
-        syncWithServer(); // Sync when coming back online
+      if (state.isConnected && hasUnsavedChanges) {
+        syncWithServer(notes, new Date().toISOString());
       }
     });
 
     return () => unsubscribe();
-  }, []);
+  }, [hasUnsavedChanges, notes]);
 
-  // Modify the real-time subscription setup
+  // Real-time subscription setup
   useEffect(() => {
-    loadNotes();
-    
-    // Set up real-time subscription for changes
     const subscription = supabase
       .channel('daily_notes_changes')
       .on('postgres_changes', 
@@ -54,220 +54,26 @@ const DailyNotes = () => {
           filter: `user_id=eq.${user.id}`,
         },
         async (payload) => {
-          // Only update if the change is from another session and for today's note
           if (payload.new.note_date === getTodayKey()) {
+            const { lastEdit } = await notesService.getFromLocal(getTodayKey());
             const serverTimestamp = new Date(payload.new.updated_at);
-            const localLastEdit = await AsyncStorage.getItem(`last_edit_${getTodayKey()}`);
             
-            // Update if server version is newer or if no local edit timestamp exists
-            if (!localLastEdit || serverTimestamp > new Date(localLastEdit)) {
+            if ((!lastEdit || serverTimestamp > new Date(lastEdit)) && 
+                payload.new.content?.length > notes?.length) {
               setNotes(payload.new.content);
-              await AsyncStorage.setItem(`notes_${getTodayKey()}`, payload.new.content);
-              await AsyncStorage.setItem(`last_edit_${getTodayKey()}`, payload.new.updated_at);
-              setLastSyncTime(serverTimestamp);
+              await notesService.saveToLocal(
+                getTodayKey(),
+                payload.new.content,
+                payload.new.updated_at
+              );
             }
           }
         }
       )
       .subscribe();
 
-    // Set up periodic fetch for updates
-    // const fetchInterval = setInterval(async () => {
-    //   if (isOnline) {
-    //     try {
-    //       const todayKey = getTodayKey();
-    //       const { data, error } = await supabase
-    //         .from('daily_notes')
-    //         .select('*')
-    //         .eq('user_id', user.id)
-    //         .eq('note_date', todayKey)
-    //         .single();
-    //         console.log('Fetching notes:', data);
-    //       if (error) {
-    //         if (error.code !== 'PGRST116') { // Not found error
-    //           console.error('Error fetching notes:', error);
-    //         }
-    //         return;
-    //       }
-
-    //       if (data) {
-    //         const serverTimestamp = new Date(data.updated_at);
-    //         const localLastEdit = await AsyncStorage.getItem(`last_edit_${getTodayKey()}`);
-
-    //         // Update if server version is newer
-    //         if (!localLastEdit || serverTimestamp > new Date(localLastEdit)) {
-    //           console.log('Fetched newer version from server');
-    //           setNotes(data.content);
-    //           await AsyncStorage.setItem(`notes_${getTodayKey()}`, data.content);
-    //           await AsyncStorage.setItem(`last_edit_${getTodayKey()}`, data.updated_at);
-    //           setLastSyncTime(serverTimestamp);
-    //         }
-    //       }
-    //     } catch (error) {
-    //       console.error('Error in periodic fetch:', error);
-    //     }
-    //   }
-    // }, 2000); // Check for updates every 2 seconds
-
-    return () => {
-      subscription.unsubscribe();
-    //   clearInterval(fetchInterval);
-    };
-  }, [isOnline, user.id]);
-
-  const handleServerUpdate = async (serverNote) => {
-    const localLastEdit = await AsyncStorage.getItem(`last_edit_${getTodayKey()}`);
-    
-    if (!localLastEdit || new Date(serverNote.updated_at) > new Date(localLastEdit)) {
-      setNotes(serverNote.content);
-      await AsyncStorage.setItem(`notes_${getTodayKey()}`, serverNote.content);
-      await AsyncStorage.setItem(`last_edit_${getTodayKey()}`, serverNote.updated_at);
-    }
-  };
-
-  const loadNotes = async () => {
-    try {
-      const todayKey = getTodayKey();
-      
-      // Load from local storage first
-      const savedNotes = await AsyncStorage.getItem(`notes_${todayKey}`);
-      if (savedNotes) {
-        setNotes(savedNotes);
-      }
-
-      // Then try to fetch from server
-      if (isOnline) {
-        const { data, error } = await supabase
-          .from('daily_notes')
-          .select('*')
-          .eq('user_id', user.id)
-          .eq('note_date', todayKey)
-          .single();
-
-        if (error) {
-          if (error.code !== 'PGRST116') { // Not found error
-            console.error('Error fetching notes:', error);
-          }
-        } else if (data) {
-          const localLastEdit = await AsyncStorage.getItem(`last_edit_${todayKey}`);
-          
-          // Use server version if it's newer
-          if (!localLastEdit || new Date(data.updated_at) > new Date(localLastEdit)) {
-            setNotes(data.content);
-            await AsyncStorage.setItem(`notes_${todayKey}`, data.content);
-            await AsyncStorage.setItem(`last_edit_${todayKey}`, data.updated_at);
-          }
-        }
-      }
-    } catch (error) {
-      console.error('Error loading notes:', error);
-    }
-  };
-
-  // Add periodic sync
-  useEffect(() => {
-
-    // Set up periodic sync
-    const syncInterval = setInterval(() => {
-      if (hasUnsavedChanges) {
-        syncWithServer();
-      }
-    }, 2000); // Sync every 2 seconds if there are unsaved changes
-
-    return () => {
-      clearInterval(syncInterval);
-    };
-  }, [isOnline, hasUnsavedChanges]);
-
-  // Modify handleTextChange to track local changes better
-  const handleTextChange = (text) => {
-    const timestamp = new Date().toISOString();
-    setNotes(text);
-    setHasUnsavedChanges(true);
-    // Update local last edit time immediately
-    AsyncStorage.setItem(`last_edit_${getTodayKey()}`, timestamp);
-    debouncedSave(text);
-  };
-
-  // Update saveNotes to include the current timestamp
-  const saveNotes = async (text) => {
-    try {
-      setSaving(true);
-      const todayKey = getTodayKey();
-      const timestamp = new Date().toISOString();
-
-      // Save locally
-      await AsyncStorage.setItem(`notes_${todayKey}`, text);
-      await AsyncStorage.setItem(`last_edit_${getTodayKey()}`, timestamp);
-
-      // Sync with server if online
-      if (isOnline) {
-        await syncWithServer(text, timestamp);
-      }
-    } catch (error) {
-      console.error('Error saving notes:', error);
-    } finally {
-      setSaving(false);
-    }
-  };
-
-  const debouncedSave = useCallback(
-    debounce((text) => saveNotes(text), 1500),
-    [isOnline]
-  );
-
-  // Update syncWithServer to use provided timestamp
-  const syncWithServer = async (text, timestamp) => {
-    if (!isOnline) return;
-
-    try {
-      const todayKey = getTodayKey();
-      
-      if (hasUnsavedChanges) {
-        setSaving(true);
-      }
-
-      const { data: existingNote } = await supabase
-        .from('daily_notes')
-        .select('*')
-        .eq('user_id', user.id)
-        .eq('note_date', todayKey)
-        .single();
-
-      if (existingNote) {
-        const { error } = await supabase
-          .from('daily_notes')
-          .update({
-            content: text,
-            updated_at: timestamp
-          })
-          .eq('user_id', user.id)
-          .eq('note_date', todayKey);
-
-        if (error) throw error;
-      } else {
-        const { error } = await supabase
-          .from('daily_notes')
-          .insert({
-            user_id: user.id,
-            note_date: todayKey,
-            content: text,
-            updated_at: timestamp
-          });
-
-        if (error) throw error;
-      }
-
-      setLastSyncTime(new Date(timestamp));
-      setHasUnsavedChanges(false);
-    } catch (error) {
-      console.error('Error syncing with server:', error);
-    } finally {
-      if (hasUnsavedChanges) {
-        setSaving(false);
-      }
-    }
-  };
+    return () => subscription.unsubscribe();
+  }, [user.id]);
 
   return (
     <View style={styles.container}>
