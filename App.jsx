@@ -1,6 +1,5 @@
 import React from 'react';
 import { View } from 'react-native';
-import DSAPlayground from './src/Screens/DSAPlayground';
 import Login from './src/Screens/Login';
 import DailyNotes from './src/Screens/DailyNotes';
 import { UserProvider, useUser } from './src/context/userContext';
